@@ -11,10 +11,10 @@ def _path(name, root=None):
     p =  os.path.join(root or os.getcwd(), name)
     return (os.path.exists(p) or not os.makedirs(p)) and p
 def _rJson(path):
-    with open(path) as f:
+    with open(path, encoding='utf-8') as f:
         return json.load(f)
 def _wJson(path, data):
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 def _logDefault(path, name):
         config = {
@@ -74,7 +74,13 @@ class DB_Table(object):
             return self.cursor.execute(f'INSERT INTO {self.name} ({col}) VALUES ({values})')
     def select(self, col):
         with self.lock:
-            return self.cursor.execute(f'SELECT {col} from {self.name}')
+            return tuple(self.cursor.execute(f'SELECT {col} from {self.name}'))
+    def select_(self, col, where):
+        with self.lock:
+            return tuple(self.cursor.execute(f'SELECT {col} from {self.name} where {where}'))
+    def slip(self, col, ord, range_start, range_size):
+        with self.lock:
+            return tuple(self.cursor.execute(f'SELECT {col} from {self.name} order by {ord} limit {range_start},{range_size}'))
     def update(self, where, _set):
         with self.lock:
             return self.cursor.execute(f'UPDATE {self.name} set {_set} where {where}')
@@ -160,6 +166,9 @@ class ModManager(object):
         self.contab_t.start()
         self.logger.debug(f'ModManager contab.start')
     def _contab(self):
+        if self.contab == {}:
+            self.logger.debug(f'ModManager nothing to do contab.exit')
+            return
         while self.contab_c: #主线程控制信号， True继续
             slp = 60.0 - next(self.interval)
             self.logger.debug(f'ModManager contab.sleep time {slp}')
@@ -208,8 +217,13 @@ class ModManager(object):
         return res
 if __name__ == '__main__':
     test = ModManager('test')
-    print(test.call('_test'))
-    time.sleep(2*60+1) #保准示例的contab执行一次
-    # b = test.db
-    # c = b.create('text', 'id integer PRIMARY KEY autoincrement, Name varchar(30), Age integer')
-    # c.show()
+    #print(test.call('_test'))
+    #time.sleep(2*60+1) #保准示例的contab执行一次
+    b = test.db
+    c = b.create('text2', 'id integer PRIMARY KEY autoincrement, Name varchar(30), Age integer, udate')
+    c.insert('age','1')
+    c.insert('age','2')
+    c.insert('age','3')
+    c.insert('age','4')
+    c.show()
+    d = c.select_('age', 'name is null')
